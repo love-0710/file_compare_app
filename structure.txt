@@ -1,0 +1,35 @@
+SmartComparePro/
+│
+├── main.py                              # Main entry point: launches UI and starts app
+│
+├── ui/
+│   ├── ui_module.py
+│   └── file_menu_bar.py                   # UI layout: side-by-side panels, scroll sync, buttons
+│
+├── handlers/
+│   ├── file_handler.py                  # Browse, load, read Excel/CSV/TXT/PDF files or folders
+│   ├── preprocess_module.py             # Normalizes date, numbers, whitespace, column names
+│   ├── compare_engine.py                # Core comparison logic: matching, sorting, highlighting
+│   └── terminal_manager.py              # Manages terminal outputs and logging
+│   ├── column_sync_module.py            # Column mismatch handler: renaming, matching with prompt
+│   ├── proof_module.py                  # Captures screenshot of mismatched columns (>5–8%)
+│   ├── report_module.py                 # Generates HTML/CSV reports (manual & auto)
+│   ├── workflow_manager.py              # Handles sequence flow between UI, compare, report
+│   └── logger.py                        # Logging all actions, mismatches, user responses
+│
+├── utils/
+│   ├── utils.py                         # Sorting, threshold check, row formatters
+│   └── config.py                        # Constants: thresholds, colors, report paths, etc.
+│
+├── assets/
+│   └── icons/                           # UI icons for buttons (optional)
+│
+├── reports/
+│   └── [generated_reports]              # Stores final HTML/CSV reports per file/folder
+│
+├── screenshots/
+│   └── [proof_images]                   # Stores screenshots for proof columns with high mismatch
+│
+├── README.md                            # Documentation of usage, installation, and features
+├── requirements.txt                     # Required Python packages
+└── setup.py                             # For .exe packaging using PyInstaller
