@@ -11,7 +11,7 @@ def normalize_date(value):
         return None
     try:
         # Attempt parsing various common formats
-        parsed_date = pd.to_datetime(str(value), errors='coerce', dayfirst=True)
+        parsed_date = pd.to_datetime(''.join(filter(str.isdigit, str(value))), errors='coerce', dayfirst=True)
         if pd.isnull(parsed_date):
             return str(value).strip()
         return parsed_date.strftime("%Y-%m-%d")

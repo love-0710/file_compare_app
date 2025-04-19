@@ -20,7 +20,7 @@ def align_dataframes(df1, df2):
     return df1_sorted, df2_sorted
 
 
-def compare_dataframes(before_df, after_df):
+def compare_dataframes(before_df, after_df, terminal_widget=None):
     before_df = preprocess_dataframe(before_df)
     after_df = preprocess_dataframe(after_df)
 
