@@ -1,22 +1,22 @@
 # terminal_manager.py
 import tkinter as tk
 
-def update_terminal_output(terminal_widget, message):
+def update_terminal_output(terminal_widget, message,tag=None):
     """
     Function to update the terminal (scrolled text) widget with messages.
     """
-    terminal_widget.config(state='normal')
+    terminal_widget.config(state=tk.NORMAL)
     terminal_widget.insert(tk.END, message + "\n")
     terminal_widget.see(tk.END)  # Auto scroll to the end
-    terminal_widget.config(state='disabled')
+    terminal_widget.config(state=tk.DISABLED)
 
 def clear_terminal(terminal_widget):
     """
     Clears the terminal output.
     """
-    terminal_widget.config(state='normal')
+    terminal_widget.config(state=tk.NORMAL)
     terminal_widget.delete(1.0, tk.END)
-    terminal_widget.config(state='disabled')
+    terminal_widget.config(state=tk.DISABLED)
 
 def log_missing_row(terminal_widget, row_data, row_number):
     """

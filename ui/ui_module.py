@@ -1,17 +1,30 @@
+
+from handlers.logger import log_starting_comparison, log_comparison_result
+from handlers.report_module import generate_html_report, generate_csv_report
+from handlers.proof_module import generate_proof_image
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog,messagebox
 from ui.file_menu import FileMenu, EditMenu, ViewMenu, HelpMenu
 from handlers.file_handler import browse_file, get_file_list_from_folder, read_file
 from tkinter import scrolledtext
 from handlers.app_terminal_manager import update_terminal_output, clear_terminal, log_missing_row, log_comparison_result, log_starting_comparison
 from handlers.compare_engine import compare_dataframes
 import pandas as pd
+from handlers.column_sync_module import check_filename_match, check_and_sync_columns
+from handlers.workflow_manager import WorkflowManager
+import os
+
 
 class SmartCompareUI:
     def __init__(self, root):
         self.root = root
         self.root.title("SmartComparePro")
         self.root.geometry("1400x800")
+
+        self.before_df = None
+        self.after_df = None
+        self.before_file_path = None
+        self.after_file_path = None
 
         # Create menu bar
         self.menu_bar = tk.Menu(self.root)
@@ -52,6 +65,10 @@ class SmartCompareUI:
         self.tag_filter = ttk.Combobox(control_frame, values=["*", "=", "≠"], width=5)
         self.tag_filter.current(0)
         self.tag_filter.pack(side=tk.LEFT, padx=5)
+
+        tk.Button(control_frame, text="Clear Logs", command=lambda: clear_terminal(self.terminal)).pack(side=tk.LEFT)
+
+
 
     def setup_panels(self):
         panel_frame = tk.Frame(self.root)
@@ -176,6 +193,8 @@ class SmartCompareUI:
         if file_path:
             df = read_file(file_path)
             if df is not None:
+                self.before_file_path = file_path 
+                self.before_df = df  
                 self.display_data_in_treeview(self.before_panel, df)
                 self.update_terminal(f"Loaded BEFORE file: {file_path}")
 
@@ -184,8 +203,12 @@ class SmartCompareUI:
         if file_path:
             df = read_file(file_path)
             if df is not None:
+                self.after_file_path = file_path
+                self.after_df = df  
                 self.display_data_in_treeview(self.after_panel, df)
                 self.update_terminal(f"Loaded AFTER file: {file_path}")
+                
+                self.make_treeview_headers_editable(self.after_panel)
 
     def display_data_in_treeview(self, tree, dataframe):
         tree.delete(*tree.get_children())
@@ -200,6 +223,9 @@ class SmartCompareUI:
         
         self.auto_adjust_columns(tree, dataframe)
 
+        # Update header visibility
+        self.update_header_visibility(tree)
+
     def auto_adjust_columns(self, tree, dataframe):
         for col in dataframe.columns:
             max_len = max(
@@ -207,6 +233,10 @@ class SmartCompareUI:
                 *[len(str(x)) for x in dataframe[col]]
             )
             tree.column(col, width=min(300, max_len * 10))
+
+    def update_header_visibility(self, tree):
+    # Ensure header is visible by scrolling horizontally if needed
+        tree.xview_moveto(0)
 
     def clear_terminal(self):
         clear_terminal(self.terminal_output)
@@ -217,14 +247,53 @@ class SmartCompareUI:
     def start_comparison(self):
         log_starting_comparison(self.terminal_output)
 
+        # Retrieve loaded file paths
+        before_file_path = self.before_file_path
+        after_file_path = self.after_file_path
+
+        # Extract filenames only (without path)
+        before_filename = os.path.basename(before_file_path)
+        after_filename = os.path.basename(after_file_path)
+
+        # Check if file names match
+        if before_filename != after_filename:
+            messagebox.showwarning("File Name Mismatch", f"Selected files do not match:\nBEFORE: {before_filename}\nAFTER: {after_filename}\n\nPlease upload matching file pairs.")
+            self.update_terminal("❌ File names do not match. Please verify BEFORE and AFTER files.")
+            return
+
+        # Convert TreeView content to DataFrames
         df_before = self.treeview_to_dataframe(self.before_panel)
         df_after = self.treeview_to_dataframe(self.after_panel)
 
-        comparison_results, missing_rows = compare_dataframes(df_before, df_after, terminal_widget=self.terminal_output)
+        # Proceed with column sync
+        updated_after_df, col_mapping = check_and_sync_columns(df_before, df_after)
+
+        if col_mapping:
+            self.update_terminal("⚠️ Mismatched columns detected. Syncing...")
+            self.display_data_in_treeview(self.after_panel, updated_after_df)
+            self.after_df = updated_after_df  # Update reference
+
+        if self.before_df is None or self.after_df is None:
+                messagebox.showerror("Error", "Please load both BEFORE and AFTER files")
+                return
+                
+        self.workflow_manager = WorkflowManager(self.terminal_output)
+        success = self.workflow_manager.run_workflow(self.before_file_path, self.after_file_path)
+            
+        if success:
+            # Update UI with comparison results
+            self.display_comparison_results(self.workflow_manager.comparison_result)
+
+
+        # Proceed with comparison
+        comparison_results, missing_rows = compare_dataframes(df_before, updated_after_df, terminal_widget=self.terminal_output)
         log_comparison_result(self.terminal_output, len(comparison_results), len(missing_rows))
 
         for missing_row in missing_rows:
             log_missing_row(self.terminal_output, missing_row)
+
+        return updated_after_df, col_mapping
+
 
     def treeview_to_dataframe(self, treeview):
         columns = treeview["columns"]
@@ -239,3 +308,53 @@ class SmartCompareUI:
 
     def log_comparison_results(self, match_count, mismatch_count):
         log_comparison_result(self.terminal_output, match_count, mismatch_count)
+
+
+
+    def make_treeview_headers_editable(self, tree):
+        entry = tk.Entry(tree)
+        entry.place_forget()
+
+        def on_double_click(event):
+            region = tree.identify("region", event.x, event.y)
+            if region != "cell":
+                return
+
+            row_id = tree.identify_row(event.y)
+            column_id = tree.identify_column(event.x)
+            if not row_id or not column_id:
+                return
+
+            x, y, width, height = tree.bbox(row_id, column_id)
+            column = tree.column(column_id, option="id")
+            value = tree.set(row_id, column)
+
+            entry.delete(0, tk.END)
+            entry.insert(0, value)
+            entry.place(x=x, y=y, width=width, height=height)
+
+            def save_edit(event=None):
+                new_value = entry.get()
+                tree.set(row_id, column, new_value)
+                entry.place_forget()
+
+            entry.bind("<Return>", save_edit)
+            entry.bind("<FocusOut>", lambda e: entry.place_forget())
+            entry.focus()
+
+        tree.bind("<Double-1>", on_double_click)
+
+
+
+    def highlight_mismatched_columns(self, treeview, col_mapping):
+        for col in col_mapping.values():
+            col_id = treeview["columns"].index(col)
+            treeview.tag_configure(f"mismatch_{col}", background="salmon")
+            for item in treeview.get_children():
+                treeview.item(item, tags=(f"mismatch_{col}",))
+
+
+
+
+
+    
