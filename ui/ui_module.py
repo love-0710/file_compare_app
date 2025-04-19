@@ -193,7 +193,7 @@ class SmartCompareUI:
         
         for col in dataframe.columns:
             tree.heading(col, text=col)
-            tree.column(col, width=100, anchor=tk.W)
+            tree.column(col, width=100, anchor=tk.W, stretch=False)
         
         for _, row in dataframe.iterrows():
             tree.insert("", "end", values=list(row))
