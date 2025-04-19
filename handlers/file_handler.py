@@ -44,12 +44,16 @@ def read_file(file_path):
             print("Unsupported file format.")
             return None
 
-        # 🔽 Add this line to apply preprocessing
+        # 🔽 Attach file path to the DataFrame for later use (e.g., in report naming)
+        df.name = file_path
+
+        # 🔽 Preprocess before returning
         return preprocess_dataframe(df)
 
     except Exception as e:
         print(f"Error reading file: {e}")
         return None
+
 
     
 

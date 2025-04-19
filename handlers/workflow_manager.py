@@ -7,7 +7,10 @@ from handlers.report_module import generate_html_report, generate_csv_report
 from handlers.proof_module import generate_proof_image
 from handlers.logger import log_starting_comparison, log_comparison_result
 from handlers.app_terminal_manager import update_terminal_output
-
+import os
+import webbrowser
+from datetime import datetime
+from tkinter import filedialog, messagebox
 
 class WorkflowManager:
     def __init__(self, terminal_text_widget):
@@ -59,13 +62,57 @@ class WorkflowManager:
         """Generate HTML and CSV reports based on the comparison results."""
         update_terminal_output(self.terminal_text_widget, "Generating reports...")
 
+        """Ask user if they want to save report, then generate HTML and CSV reports."""
+        result = messagebox.askyesno("Generate Report", "Comparison completed.\nDo you want to save the report?")
+
+        if not result:
+            update_terminal_output(self.terminal_text_widget, "User chose not to save the report.")
+            return True  # Not an error, just a choice
+
+
         try:
-            html_report_path = generate_html_report(self.comparison_result)
-            csv_report_path = generate_csv_report(self.comparison_result)
-            update_terminal_output(self.terminal_text_widget, f"Reports generated: {html_report_path}, {csv_report_path}")
+            # Get AFTER file name without extension
+            file_basename = os.path.splitext(os.path.basename(self.after_file))[0]
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            suggested_name = f"{file_basename}_{timestamp}"
+
+            # Ask where to save HTML report
+            html_path = filedialog.asksaveasfilename(
+                initialfile=f"{suggested_name}.html",
+                defaultextension=".html",
+                filetypes=[("HTML files", "*.html")],
+                title="Save HTML Report As"
+            )
+            if not html_path:
+                update_terminal_output(self.terminal_text_widget, "Report generation cancelled by user.")
+                return False
+
+            # Ask where to save CSV report
+            csv_path = filedialog.asksaveasfilename(
+                initialfile=f"{suggested_name}.csv",
+                defaultextension=".csv",
+                filetypes=[("CSV files", "*.csv")],
+                title="Save CSV Report As"
+            )
+            if not csv_path:
+                update_terminal_output(self.terminal_text_widget, "CSV export cancelled by user.")
+                return False
+
+            # Generate both reports
+
+            generate_html_report(self.comparison_result, html_path)
+            generate_csv_report(self.comparison_result, csv_path)
+
+            update_terminal_output(self.terminal_text_widget, f"✅ Reports generated successfully:\n📄 HTML: {html_path}\n📄 CSV: {csv_path}")
+
+            # Preview HTML report
+            webbrowser.open(f"file://{html_path}")
+
+
         except Exception as e:
-            update_terminal_output(self.terminal_text_widget, f"Error generating reports: {str(e)}", "error")
+            update_terminal_output(self.terminal_text_widget, f"❌ Error generating reports: {str(e)}", "error")
             return False
+
         return True
 
     def generate_proof(self):

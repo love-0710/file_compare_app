@@ -189,26 +189,35 @@ class SmartCompareUI:
             self.update_terminal(f"Found {len(file_list)} files in folder: {folder_path}")
 
     def load_before_file(self):
-        file_path = browse_file()
-        if file_path:
-            df = read_file(file_path)
+        before_file_path = browse_file()
+        if before_file_path:
+            df = read_file(before_file_path)
             if df is not None:
-                self.before_file_path = file_path 
+                self.before_file_path = before_file_path 
                 self.before_df = df  
+                self.before_panel.delete(*self.before_panel.get_children()) 
                 self.display_data_in_treeview(self.before_panel, df)
-                self.update_terminal(f"Loaded BEFORE file: {file_path}")
+                self.update_terminal(f"Loaded BEFORE file: {before_file_path}")
 
     def load_after_file(self):
-        file_path = browse_file()
-        if file_path:
-            df = read_file(file_path)
+        after_file_path = browse_file()
+        if after_file_path:
+            df = read_file(after_file_path)
             if df is not None:
-                self.after_file_path = file_path
+                self.after_file_path = after_file_path
                 self.after_df = df  
+                self.after_panel.delete(*self.after_panel.get_children()) 
                 self.display_data_in_treeview(self.after_panel, df)
-                self.update_terminal(f"Loaded AFTER file: {file_path}")
+                self.update_terminal(f"Loaded AFTER file: {after_file_path}")
                 
                 self.make_treeview_headers_editable(self.after_panel)
+
+    def trigger_report_generation(self):
+        # This method will be used to trigger report generation and pass file paths to the workflow module
+        if hasattr(self, 'after_file_path') and hasattr(self, 'before_file_path'):
+            self.workflow.generate_reports(self.after_file_path, self.before_file_path)
+        else:
+            self.update_terminal("Files not loaded properly.")
 
     def display_data_in_treeview(self, tree, dataframe):
         tree.delete(*tree.get_children())
