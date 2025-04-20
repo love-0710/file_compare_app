@@ -43,11 +43,19 @@ def normalize_whitespace(value):
 def normalize_value(value):
     if pd.isnull(value):
         return None
-    val = str(value)
-    val = normalize_whitespace(val)
-    val = normalize_numeric(val)
-    val = normalize_date(val)
-    return str(val).lower().strip()  # Case-insensitive matching
+    val = normalize_whitespace(value)
+
+    # Try to normalize as number first
+    numeric_val = normalize_numeric(val)
+    if numeric_val != val:
+        return str(numeric_val).lower().strip()
+
+    # If not numeric, try date
+    date_val = normalize_date(val)
+    if date_val != val:
+        return str(date_val).lower().strip()
+
+    return str(val).lower().strip()
 
 # --- COLUMN NAME NORMALIZATION ---
 def normalize_column_names(columns):

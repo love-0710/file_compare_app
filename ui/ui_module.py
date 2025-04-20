@@ -210,16 +210,85 @@ class SmartCompareUI:
 
     def load_after_file(self):
         after_file_path = browse_file()
-        if after_file_path:
+        
+        if not after_file_path:
+            return
+
+        try:
             df = read_file(after_file_path)
-            if df is not None:
-                self.after_file_path = after_file_path
-                self.after_df = df  
-                self.after_panel.delete(*self.after_panel.get_children()) 
-                self.display_data_in_treeview(self.after_panel, df)
-                self.update_terminal(f"Loaded AFTER file: {after_file_path}")
+            
+            # Handle if the file is empty or doesn't have valid columns
+            if df is None or df.empty:
+                self.update_terminal("Error reading file: Empty file No data to parse from file.")
+                return
+
+            self.after_file_path = after_file_path
+            self.after_df = df
+
+            self.after_panel.delete(*self.after_panel.get_children())
+            self.display_data_in_treeview(self.after_panel, df)
+            self.make_treeview_headers_editable(self.after_panel)  # Allow editing headers
+
+            self.update_terminal(f"Loaded AFTER file: {after_file_path}")
+
+            # ✅ Handle empty file scenarios
+            if self.before_df is None and self.after_df is not None:
+                self.update_terminal("One of the files is empty. Comparison will proceed, but no matches are expected.")
+                self.generate_empty_mismatch_report()
+                return
+
+            if self.before_df is not None and self.after_df is None:
+                self.update_terminal("One of the files is empty. Comparison will proceed, but no matches are expected.")
+                self.generate_empty_mismatch_report()
+                return
+
+            if self.before_df is None and self.after_df is None:
+                self.update_terminal("Both files are empty. Nothing to compare.")
+                self.generate_empty_match_report()
+                return
+
+            # ✅ Validate filename match
+            if not self.column_sync.validate_filename_match(self.before_file_path, after_file_path):
+                messagebox.showwarning("Filename Mismatch", "AFTER file name does not match BEFORE file name.")
+
+            # ✅ Validate column match & fuzzy matching
+            mismatch_result = self.column_sync.validate_and_suggest_column_sync(self.before_df, self.after_df)
+
+            if mismatch_result['status'] == 'mismatch':
+                suggested_mapping = mismatch_result['suggested_mapping']
+                mismatched_columns = mismatch_result['mismatched_columns']
+
+                # ✅ Highlight mismatched columns in red
+                self.highlight_mismatched_columns(self.after_panel, mismatched_columns)
+
+                # ✅ Prompt user for auto/manual rename
+                user_choice = messagebox.askyesno("Column Mismatch",
+                    "Column names in AFTER file do not match BEFORE file.\n"
+                    "Do you want to auto-rename the mismatched columns?")
                 
-                self.make_treeview_headers_editable(self.after_panel)
+                if user_choice:
+                    # Auto-rename based on suggested mapping
+                    self.after_df.rename(columns=suggested_mapping, inplace=True)
+                    self.refresh_after_panel_with_new_columns()
+                    self.update_terminal("AFTER columns auto-renamed to match BEFORE file.")
+                else:
+                    self.update_terminal("User chose manual editing for AFTER column names.")
+            else:
+                self.update_terminal("AFTER columns match BEFORE columns.")
+
+        except Exception as e:
+            self.update_terminal(f"Error loading AFTER file: {str(e)}")
+            return
+
+    def generate_empty_mismatch_report(self):
+        # Generate mismatch report with 0 matches
+        self.update_terminal("Generating mismatch report with no matches...")
+        self.generate_report(matches=0, mismatches=0)
+
+    def generate_empty_match_report(self):
+        # Generate match report with all matched (since no data)
+        self.update_terminal("Generating match report with no data...")
+        self.generate_report(matches=0, mismatches=0)  # Both files are empty, so no mismatch
 
     def trigger_report_generation(self):
         # This method will be used to trigger report generation and pass file paths to the workflow module
