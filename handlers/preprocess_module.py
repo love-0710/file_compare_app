@@ -4,6 +4,8 @@ import re
 import pandas as pd
 import numpy as np
 from datetime import datetime
+from utils.utils import normalize_date, normalize_number, remove_extra_whitespace
+
 
 # --- DATE FORMAT NORMALIZATION ---
 def normalize_date(value):
@@ -78,3 +80,10 @@ def is_effectively_null(val):
     if pd.isnull(val):
         return True
     return str(val).strip().lower() in ["", "none", "null", "nan"]
+
+def preprocess_row(row):
+    """Normalize date, number, and remove extra whitespace from the row."""
+    row['date'] = normalize_date(row['date'])  # Date normalization
+    row['amount'] = normalize_number(row['amount'])  # Number normalization
+    row['name'] = remove_extra_whitespace(row['name'])  # Whitespace normalization
+    return row

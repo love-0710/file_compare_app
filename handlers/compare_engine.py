@@ -2,6 +2,10 @@ import pandas as pd
 from difflib import SequenceMatcher
 from handlers.preprocess_module import preprocess_dataframe
 from handlers.app_terminal_manager import update_terminal_output
+from utils.utils import fuzzy_match, sort_rows_by_column
+from utils.config import MISMATCH_THRESHOLD
+
+
 
 def is_similar(val1, val2, threshold=0.9):
     try:
@@ -55,7 +59,7 @@ def compare_dataframes(before_df, after_df, terminal_widget=None):
 
         comparison_results.append(row_result)
 
-    return comparison_results, missing_rows
+    return pd.DataFrame(comparison_results), pd.DataFrame(missing_rows)
 
 
 def show_missing_rows_in_terminal(terminal_widget, missing_rows):
@@ -70,3 +74,17 @@ def show_missing_rows_in_terminal(terminal_widget, missing_rows):
     for idx, row in enumerate(missing_rows, 1):
         row_str = ", ".join([f"{col}: {val}" for col, val in row.items()])
         update_terminal_output(terminal_widget, f"{idx}. {row_str}")
+
+
+def compare_rows(row1, row2):
+    """Compare two rows using fuzzy matching for string fields."""
+    if fuzzy_match(row1['name'], row2['name']):
+        # If names match above the threshold, compare further or mark as matching
+        pass
+    else:
+        # Handle mismatch (log it, highlight it, etc.)
+        pass
+
+def sort_data(data, column_index):
+    """Sort data based on a specific column."""
+    return sort_rows_by_column(data, column_index)

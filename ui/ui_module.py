@@ -13,7 +13,8 @@ import pandas as pd
 from handlers.column_sync_module import check_filename_match, check_and_sync_columns
 from handlers.workflow_manager import WorkflowManager
 import os
-
+from utils.config import COLOR_MATCH, COLOR_MISMATCH,COLOR_WARNING,COLOR_INFO
+from utils.utils import remove_extra_whitespace
 
 class SmartCompareUI:
     def __init__(self, root):
@@ -25,6 +26,14 @@ class SmartCompareUI:
         self.after_df = None
         self.before_file_path = None
         self.after_file_path = None
+        self.workflow = WorkflowManager(self.update_terminal)
+
+        self.bottom_frame = ttk.Frame(self.root)
+        self.bottom_frame.pack(side='bottom', fill='x')
+
+        self.message_label = ttk.Label(self.bottom_frame, text="", foreground=COLOR_INFO)
+        self.message_label.grid(row=0, column=0, sticky='w', padx=5, pady=5)
+
 
         # Create menu bar
         self.menu_bar = tk.Menu(self.root)
@@ -59,7 +68,7 @@ class SmartCompareUI:
         self.stop_btn = tk.Button(control_frame, text="Stop", bg="red", fg="white")
         self.stop_btn.pack(side=tk.LEFT, padx=5)
 
-        self.report_btn = tk.Button(control_frame, text="Generate Report", bg="blue", fg="white")
+        self.report_btn = tk.Button(control_frame, text="Generate Report", bg="blue", fg="white", command=self.trigger_report_generation)
         self.report_btn.pack(side=tk.LEFT, padx=5)
 
         self.tag_filter = ttk.Combobox(control_frame, values=["*", "=", "≠"], width=5)
@@ -215,7 +224,7 @@ class SmartCompareUI:
     def trigger_report_generation(self):
         # This method will be used to trigger report generation and pass file paths to the workflow module
         if hasattr(self, 'after_file_path') and hasattr(self, 'before_file_path'):
-            self.workflow.generate_reports(self.after_file_path, self.before_file_path)
+            self.workflow.generate_reports(self.before_file_path, self.after_file_path)
         else:
             self.update_terminal("Files not loaded properly.")
 
@@ -363,7 +372,38 @@ class SmartCompareUI:
                 treeview.item(item, tags=(f"mismatch_{col}",))
 
 
+    def display_comparison_results(self, comparison_result):
+        match_df = comparison_result.get("match")
+        mismatch_df = comparison_result.get("mismatch")
+        missing_rows_df = comparison_result.get("missing_rows")
+
+        # Display matching data on BEFORE panel
+        if match_df is not None and not match_df.empty:
+            self.display_dataframe_in_treeview(match_df, self.before_panel, highlight=False)
+            self.message_label.config(text="✅ Matching rows displayed.", foreground="green")
+
+        # Display mismatching data on AFTER panel
+        if mismatch_df is not None and not mismatch_df.empty:
+            self.display_dataframe_in_treeview(mismatch_df, self.after_panel, highlight=True)
+            self.message_label.config(text="❌ Mismatched rows found!", foreground="red")
+            self.mismatch_data = mismatch_df  # Store for proof/report
+
+        # Display missing rows in separate panel
+        if missing_rows_df is not None and not missing_rows_df.empty:
+            self.display_dataframe_in_treeview(missing_rows_df, self.missing_row, highlight=True)
+            self.message_label.config(text="⚠ Missing rows in AFTER file!", foreground="orange")
+            self.missing_data = missing_rows_df  # Store for report
 
 
+    def display_dataframe_in_treeview(self, df, treeview, highlight=False):
+        treeview.delete(*treeview.get_children())
+        treeview["columns"] = list(df.columns)
+        treeview["show"] = "headings"
 
-    
+        for col in df.columns:
+            treeview.heading(col, text=col)
+
+        for _, row in df.iterrows():
+            values = [row[col] for col in df.columns]
+            treeview.insert("", "end", values=values)
+

@@ -10,6 +10,7 @@ def update_terminal_output(terminal_widget, message,tag=None):
     terminal_widget.see(tk.END)  # Auto scroll to the end
     terminal_widget.config(state=tk.DISABLED)
 
+
 def clear_terminal(terminal_widget):
     """
     Clears the terminal output.
